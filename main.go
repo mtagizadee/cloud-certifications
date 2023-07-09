@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
@@ -43,6 +44,10 @@ func main() {
 	companies.POST("/", addCompany)
 	companies.GET("/:id", getCompanyById)
 	companies.POST("/:id/apps", addApp);
+
+	certificates := v1.Group("/certificates")
+	certificates.POST("/", addCertificate)
+	certificates.POST("/validate", validateCertificate)
 
 	r.Run("localhost:3000");
 }
@@ -135,4 +140,20 @@ func addApp(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, application)
+}
+
+type certificate struct {
+	ID string `gorm:"primaryKey"`
+	AppID int
+	CreatedAt time.Time
+	UpdatedAt time.Time
+  DeletedAt gorm.DeletedAt `gorm:"index"`
+}
+
+func addCertificate(c *gin.Context) {
+	// implement this
+}
+
+func validateCertificate(c *gin.Context) {
+	// implement this
 }
