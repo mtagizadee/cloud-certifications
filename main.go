@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
@@ -26,9 +25,19 @@ func main() {
 	r.Run("localhost:3000");
 }
 
+/**
+* binding - request body validation
+* json - json response formatter
+* gorm - model validation
+*/
+
+type company struct { 
+	gorm.Model
+	Name string `gorm:"not null" json:"name" binding:"required,min=2"`
+	Email string `gorm:"unique;not null" json:"email" binding:"required,email"`
+	Password string `gorm:"not null" json:"-" binding:"required,min=4,max=16"`
+}
+
 func addCompany(c *gin.Context) {
-	// temporary implementation
-	c.JSON(http.StatusOK, gin.H{
-		"message": "pong",
-	})
+	
 }
