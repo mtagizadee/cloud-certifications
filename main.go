@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
@@ -32,14 +33,17 @@ func main() {
 	setDB(db)
 	fmt.Println("Connected to the database.")
 
-	err = db.AutoMigrate(&company{})
+	err = db.AutoMigrate(&company{}, &app{})
 	if err != nil {
 		panic("Could not migrate the database.")
 	}
 	fmt.Println("Database migrated.")
 	
-	v1.POST("/companies", addCompany)
-	v1.GET("/companies/:id", getCompanyById)
+	companies := v1.Group("/companies")
+	companies.POST("/", addCompany)
+	companies.GET("/:id", getCompanyById)
+	companies.POST("/:id/apps", addApp);
+
 	r.Run("localhost:3000");
 }
 
@@ -51,9 +55,10 @@ func main() {
 
 type company struct { 
 	gorm.Model
-	Name string `gorm:"not null" json:"name" binding:"required,min=2"`
-	Email string `gorm:"unique;not null" json:"email" binding:"required,email"`
-	Password string `gorm:"not null" json:"password" binding:"required,min=4,max=16"`
+	Name string `gorm:"not null" binding:"required,min=2"`
+	Email string `gorm:"unique;not null" binding:"required,email"`
+	Password string `gorm:"not null" binding:"required,min=4,max=16"`
+	Apps []app `gorm:"foreignkey:CompanyID"`
 }
 
 func (c *company) hashPassword() {
@@ -64,7 +69,7 @@ func (c *company) hashPassword() {
 func addCompany(c *gin.Context) {
 		var company company;
 		if err := c.ShouldBindJSON(&company); err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		company.hashPassword()
@@ -72,7 +77,7 @@ func addCompany(c *gin.Context) {
 		db := getDB(db)
 		err := db.Create(&company).Error
 		if err != nil {
-			c.JSON(400, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
@@ -82,18 +87,52 @@ func addCompany(c *gin.Context) {
 func getCompanyById(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(400, gin.H{"error": "id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
 		return
 	}
 
 	db := getDB(db)
 	var company company
 
-	err := db.First(&company, id).Error
+	err := db.Model(&company).Preload("Apps").Where("id = ?", id).First(&company).Error
 	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, company)
+}
+
+type app struct {
+	gorm.Model
+	Name string `gorm:"not null" binding:"required,min=2"`
+	CompanyID int
+}
+
+func addApp(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		return
+	}
+	companyId, err := strconv.Atoi(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var application app
+	if err := c.ShouldBind(&application); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	application.CompanyID = companyId
+
+	err = db.Create(&application).Error
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, application)
 }
