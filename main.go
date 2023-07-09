@@ -38,9 +38,8 @@ func main() {
 	}
 	fmt.Println("Database migrated.")
 	
-	
-
 	v1.POST("/companies", addCompany)
+	v1.GET("/companies/:id", getCompanyById)
 	r.Run("localhost:3000");
 }
 
@@ -78,4 +77,23 @@ func addCompany(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusCreated, company)
+}
+
+func getCompanyById(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(400, gin.H{"error": "id is required"})
+		return
+	}
+
+	db := getDB(db)
+	var company company
+
+	err := db.First(&company, id).Error
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, company)
 }
