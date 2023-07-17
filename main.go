@@ -126,29 +126,21 @@ func addCertificate(c *gin.Context) {
 		return
 	}
 
-	var certificate entities.Certificate
-	accessToken, err := certificate.GenerateAccessToken(companyId)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
 	_db := db.GetDB();
 	// setup the certificate
-	certificate.AppID = appId
-	certificate.GenerateId()
-	err = _db.Create(&certificate).Error // create the certificate and save it to the database
+	builder, err := entities.NewCertificate().SetAppId(appId).GenerateId().GenerateAccessToken(companyId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	
+	err = _db.Create(builder.Prepare()).Error // create the certificate and save it to the database
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, &entities.PublicCertificate{
-		AccessToken: accessToken,
-		CertificateId: certificate.ID,
-		ApplicationId: certificate.AppID,
-		CreatedAt: certificate.CreatedAt,
-	})
+	c.JSON(http.StatusCreated, builder.Build())
 }
 
 func verifyCertificate(c *gin.Context) {

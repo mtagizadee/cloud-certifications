@@ -26,10 +26,6 @@ type Certificate struct {
   DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-func (cert *Certificate) GenerateId() {
-	cert.ID = uuid.New().String()
-}
-
 func (cert Certificate) GenerateAccessToken(companyId int) (string, error) {
 	return _jwt.Token(map[string]int{
 		"CompanyId": companyId,
@@ -74,4 +70,52 @@ func (cert PublicCertificate) VerifyCertificateIdAndCreatedAt() (bool, error) {
 	}
 
 	return cert.ApplicationId == certificate.AppID && cert.CreatedAt == certificate.CreatedAt, nil
+}
+
+type CertificateBuilder struct {
+	certificate Certificate
+	public PublicCertificate
+}
+
+func (builder *CertificateBuilder) Prepare() **Certificate {
+	cert := &builder.certificate
+	
+	return &cert
+}
+
+func (builder *CertificateBuilder) Build() *PublicCertificate {
+	builder.public.ApplicationId = builder.certificate.AppID
+	builder.public.CertificateId = builder.certificate.ID
+	builder.public.CreatedAt = builder.certificate.CreatedAt
+	
+	return &builder.public
+}
+
+func (builder *CertificateBuilder) GenerateId() *CertificateBuilder {
+	builder.certificate.ID = uuid.New().String()
+	return builder
+}
+
+func (builder *CertificateBuilder) SetAppId(appId int) *CertificateBuilder {
+	builder.certificate.AppID = appId
+	return builder
+}
+
+func (builder *CertificateBuilder) GenerateAccessToken(companyId int) (*CertificateBuilder,error) {
+	token, err := _jwt.Token(map[string]int{
+		"CompanyId": companyId,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	builder.public.AccessToken = token
+	return builder, nil
+}
+
+func NewCertificate() *CertificateBuilder {
+	return &CertificateBuilder{
+		certificate: Certificate{},
+		public: PublicCertificate{},
+	}
 }
