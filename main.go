@@ -37,6 +37,7 @@ func main() {
 
 	connections := v1.Group("/connections")
 	connections.POST("/", addConnection)
+	connections.POST("/verify", verifyConnection)
 
 	integrations := v1.Group("/integrations")
 	integrations.GET("/", getIntergrations)
@@ -254,3 +255,28 @@ func addConnection(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, connection)
 }
+
+
+func verifyConnection(c *gin.Context) {
+	var connection entities.Connection
+	if err := c.ShouldBindJSON(&connection); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	_db := db.GetDB()
+	// find integration by id and join with connections
+	var integration entities.Integration
+	err := _db.Model(&entities.Integration{}).Preload("Connections").Where("id = ?", connection.IntegrationID).First(&integration).Error
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !integration.HasConnection(connection.ID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "invalid connection"})
+		return
+	} 
+	
+	c.JSON(http.StatusOK, gin.H{"message": "connection verified"})
+} 
