@@ -126,18 +126,20 @@ func addCertificate(c *gin.Context) {
 		return
 	}
 
-	_db := db.GetDB();
 	// setup the certificate
-	builder, err := entities.NewCertificate().SetAppId(appId).GenerateId().GenerateAccessToken(companyId)
+	builder, err := entities.
+										NewCertificate().
+										SetAppId(appId).
+										GenerateId().
+										GenerateAccessToken(companyId)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	
-	err = _db.Create(builder.Prepare()).Error // create the certificate and save it to the database
+	err = builder.Prepare()	
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
 	}
 
 	c.JSON(http.StatusCreated, builder.Build())

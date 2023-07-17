@@ -77,10 +77,14 @@ type CertificateBuilder struct {
 	public PublicCertificate
 }
 
-func (builder *CertificateBuilder) Prepare() **Certificate {
-	cert := &builder.certificate
+func (builder *CertificateBuilder) Prepare() error {
+	_db := db.GetDB()
+	err := _db.Create(&builder.certificate).Error // create the certificate and save it to the database
+	if err != nil {
+		return err
+	}
 	
-	return &cert
+	return nil
 }
 
 func (builder *CertificateBuilder) Build() *PublicCertificate {
