@@ -19,7 +19,7 @@ createdAt
 */
 
 type Certificate struct {
-	ID string `gorm:"primaryKey"`
+	ID string `gorm:"primaryKey"` // uuid
 	AppID int
 	CreatedAt time.Time 
 	UpdatedAt time.Time
