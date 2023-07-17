@@ -4,7 +4,6 @@ import (
 	"auth/packages/db"
 	"auth/packages/entities"
 	"auth/packages/migration"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -127,16 +126,12 @@ func addCertificate(c *gin.Context) {
 		return
 	}
 
-	fmt.Println(appId, companyId)
-	
-	
 	var certificate entities.Certificate
 	accessToken, err := certificate.GenerateAccessToken(companyId)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	fmt.Println(accessToken)
 
 	_db := db.GetDB();
 	// setup the certificate
