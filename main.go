@@ -1,11 +1,13 @@
 package main
 
 import (
+	"auth/packages/_jwt"
 	"auth/packages/db"
 	"auth/packages/entities"
 	"auth/packages/migration"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -33,6 +35,9 @@ func main() {
 
 	certificates := v1.Group("/certificates")
 	certificates.POST("/verify", verifyCertificate)
+
+	auth := v1.Group("/auth")
+	auth.POST("/login", login)
 		
 	r.Run("localhost:3000");
 }
@@ -179,3 +184,40 @@ func verifyCertificate(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "certificate verified"})
 }
 
+type LoginPayload struct {
+	Email string `binding:"required,email"`
+	Password string  `binding:"required,min=8,max=32"`
+}
+
+func login(c *gin.Context) {
+	var payload LoginPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	_db := db.GetDB()
+	var company entities.Company
+	err := _db.Where("email = ?", payload.Email).First(&company).Error
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !company.VerifyPassword(payload.Password) { 
+		c.JSON(http.StatusForbidden, gin.H{"error": "invalid credentials"})
+		return
+	}
+
+	// generate the token
+	token, err := _jwt.Token(map[string]int{
+		"id": int(company.ID),
+	}, 24 * time.Hour)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
+}

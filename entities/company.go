@@ -28,3 +28,8 @@ func (c *Company) HashPassword() {
 	hash := sha256.Sum256([]byte(c.Password))
 	c.Password = fmt.Sprintf("%x", hash)
 }
+
+func (c *Company) VerifyPassword(password string) bool {
+	hash := sha256.Sum256([]byte(password))
+	return fmt.Sprintf("%x", hash) == c.Password
+}

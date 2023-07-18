@@ -15,11 +15,11 @@ func getSecretKey() []byte {
 	return []byte("supersecret") // IMPORTANT: replace it after the development
 }
 
-func Token(claims map[string]int) (string, error) {
+func Token(claims map[string]int, exp time.Duration) (string, error) {
 	_claims := jwtCertificatePayload{
 		StandardClaims: jwt.StandardClaims{
 			// set token lifetime in timestamp
-			ExpiresAt: time.Now().Add(28 * 24 * time.Hour).Unix(),
+			ExpiresAt: time.Now().Add(exp).Unix(),
 	},
 	// add custom claims like user_id or email, 
 	// it can vary according to requirements

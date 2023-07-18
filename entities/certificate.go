@@ -26,12 +26,6 @@ type Certificate struct {
   DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-func (cert Certificate) GenerateAccessToken(companyId int) (string, error) {
-	return _jwt.Token(map[string]int{
-		"CompanyId": companyId,
-	})
-}
-
 type PublicCertificate struct  {
 	AccessToken string `binding:"required"`
 	ApplicationId int `binding:"required"`
@@ -108,7 +102,7 @@ func (builder *CertificateBuilder) SetAppId(appId int) *CertificateBuilder {
 func (builder *CertificateBuilder) GenerateAccessToken(companyId int) (*CertificateBuilder,error) {
 	token, err := _jwt.Token(map[string]int{
 		"CompanyId": companyId,
-	})
+	}, 28 * 24 * time.Hour)
 	if err != nil {
 		return nil, err
 	}
