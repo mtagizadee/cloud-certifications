@@ -9,7 +9,7 @@ import (
 func Migrate() error {
 	_db := db.GetDB();
 
-	err := _db.AutoMigrate(&entities.Company{}, &entities.App{}, &entities.Certificate{}, &entities.Integration{}, &entities.Connection{})
+	err := _db.AutoMigrate(&entities.Company{}, &entities.App{}, &entities.Certificate{})
 	if err != nil {
 		return err
 	}

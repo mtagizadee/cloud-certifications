@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 func main() {
@@ -34,14 +33,7 @@ func main() {
 
 	certificates := v1.Group("/certificates")
 	certificates.POST("/verify", verifyCertificate)
-
-	connections := v1.Group("/connections")
-	connections.POST("/", addConnection)
-	connections.POST("/verify", verifyConnection)
-
-	integrations := v1.Group("/integrations")
-	integrations.GET("/", getIntergrations)
-	
+		
 	r.Run("localhost:3000");
 }
 
@@ -187,96 +179,3 @@ func verifyCertificate(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "certificate verified"})
 }
 
-func getIntergrations(c *gin.Context) {
-	_db := db.GetDB()
-	var integrations []entities.Integration
-	err := _db.Preload("Connections").Find(&integrations).Error
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, integrations)
-}
-
-func addInegration() (entities.Integration, error) {
-	_db := db.GetDB()
-	integration := entities.Integration{ ID: uuid.New().String() }
-			
-	err := _db.Create(&integration).Error
-	if err != nil {
-		return integration, err
-	}
-
-	return integration, nil
-}
-
-func addConnection(c *gin.Context) {
-	_db := db.GetDB()
-	var integrations []entities.Integration
-	err := _db.Preload("Connections").Find(&integrations).Error
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	var _integration entities.Integration
-	if len(integrations) > 0 { // if there are integrations in the database => use the last one
-		lastIntegration := integrations[len(integrations) - 1]
-		if len(lastIntegration.Connections) >= 10 { // if the last integration has 10 connections => create new one
-			integration, err := addInegration()
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-				return
-			}
-
-			_integration = integration
-		} else { // if the last integration has less than 10 connections => use it
-			_integration = lastIntegration
-		}
-	} else { // if no integrations in the database => create one
-		integration, err := addInegration()
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		_integration = integration
-	}
-
-	var connection entities.Connection
-	connection.IntegrationID = _integration.ID
-	// create connection 
-	err = _db.Create(&connection).Error
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, connection)
-}
-
-
-func verifyConnection(c *gin.Context) {
-	var connection entities.Connection
-	if err := c.ShouldBindJSON(&connection); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	_db := db.GetDB()
-	// find integration by id and join with connections
-	var integration entities.Integration
-	err := _db.Model(&entities.Integration{}).Preload("Connections").Where("id = ?", connection.IntegrationID).First(&integration).Error
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if !integration.HasConnection(connection.ID) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "invalid connection"})
-		return
-	} 
-	
-	c.JSON(http.StatusOK, gin.H{"message": "connection verified"})
-} 
