@@ -7,6 +7,7 @@ import (
 	"auth/packages/migration"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -30,8 +31,11 @@ func main() {
 	companies := v1.Group("/companies")
 	companies.POST("/", addCompany)
 	companies.GET("/:id", getCompanyById)
-	companies.POST("/:id/apps", addApp);
-	companies.POST(":id/apps/:appId/certificates", addCertificate)
+	
+	apps := v1.Group("/apps")
+	apps.Use(AuthMiddleware())
+	apps.POST("/", addApp);
+	apps.POST("/:id/certificates", addCertificate)
 
 	certificates := v1.Group("/certificates")
 	certificates.POST("/verify", verifyCertificate)
@@ -80,16 +84,7 @@ func getCompanyById(c *gin.Context) {
 }
 
 func addApp(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
-		return
-	}
-	companyId, err := strconv.Atoi(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	companyId := int(c.MustGet("company").(entities.Company).ID)
 
 	var application entities.App
 	if err := c.ShouldBind(&application); err != nil {
@@ -99,7 +94,7 @@ func addApp(c *gin.Context) {
 	application.CompanyID = companyId
 
 	_db := db.GetDB()
-	err = _db.Create(&application).Error
+	err := _db.Create(&application).Error
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -109,20 +104,11 @@ func addApp(c *gin.Context) {
 }
 
 func addCertificate(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
-		return
-	}
-	companyId, err := strconv.Atoi(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	companyId := int(c.MustGet("company").(entities.Company).ID)
 
-	strAppId := c.Param("appId")
+	strAppId := c.Param("id")
 	if strAppId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "appId is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
 		return
 	}
 	appId, err := strconv.Atoi(strAppId)
@@ -220,4 +206,50 @@ func login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"token": token})
+}
+
+func AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		h := c.GetHeader("Authorization")
+		if h == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.Abort()
+			return
+		}
+
+		partitions := strings.Split(h, " ")
+		if len(partitions) != 2 {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.Abort()
+			return
+		}
+
+		if partitions[0] != "Bearer" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.Abort()
+			return
+		}
+
+		token := partitions[1]
+		claims, err := _jwt.Claims(token)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.Abort()
+			return
+		}
+
+		companyId := claims.CustomClaims["id"]
+
+		_db := db.GetDB()
+		var company entities.Company
+		err = _db.Where("id = ?", companyId).First(&company).Error
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.Abort()
+			return
+		}
+
+		c.Set("company", company)
+		c.Next()
+	}
 }
