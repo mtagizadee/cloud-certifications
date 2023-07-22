@@ -33,10 +33,10 @@ type PublicCertificate struct  {
 	CreatedAt time.Time `binding:"required"`
 } 
 
-func (cert PublicCertificate) VerifyAccessTokenAndAppId() (bool, error) {
+func (cert PublicCertificate) VerifyAccessTokenAndAppId() (bool, int, error) {
 	claims, err := _jwt.Claims(cert.AccessToken)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 
 	// check if the company is the owner of the certificate
@@ -44,15 +44,15 @@ func (cert PublicCertificate) VerifyAccessTokenAndAppId() (bool, error) {
 	var company Company
 	err = _db.Model(&company).Preload("Apps").Where("id = ?", claims.CustomClaims["CompanyId"]).First(&company).Error
 	if err != nil { // company not found
-		return false, err
+		return false, 0, err
 	}
 
 	// check if company owns the application
 	if !company.HasApp(cert.ApplicationId) {
-		return false, errors.New("company does not own the application")
+		return false, 0, errors.New("company does not own the application")
 	}	
 
-	return true, nil
+	return true, int(company.ID), nil
 }
 
 func (cert PublicCertificate) VerifyCertificateIdAndCreatedAt() (bool, error) {

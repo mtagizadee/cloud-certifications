@@ -144,7 +144,7 @@ func verifyCertificate(c *gin.Context) {
 	}
 
 	// verify the access token and application id
-	ok, err := payload.VerifyAccessTokenAndAppId()
+	ok, companyId, err := payload.VerifyAccessTokenAndAppId()
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
@@ -167,7 +167,7 @@ func verifyCertificate(c *gin.Context) {
 		return
 	}
 	
-	c.JSON(http.StatusOK, gin.H{"message": "certificate verified"})
+	c.JSON(http.StatusOK, gin.H{"message": "certificate verified", "companyId": companyId, "appId": payload.ApplicationId})
 }
 
 type LoginPayload struct {
